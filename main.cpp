@@ -5,6 +5,12 @@
 #include <atomic>
 #include <iomanip>
 #include <optional>
+// 添加 x86 intrinsics 头文件
+#if defined(__x86_64__) || defined(_M_X64)
+    #include <immintrin.h>
+#elif defined(__arm__) || defined(__aarch64__)
+    #include <arm_neon.h>
+#endif
 
 /**
  * @brief 性能测试参数
