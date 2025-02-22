@@ -11,6 +11,7 @@
 #elif defined(__arm__) || defined(__aarch64__)
     #include <arm_neon.h>
 #endif
+#include "timer.hpp"
 
 /**
  * @brief 性能测试参数
@@ -120,12 +121,13 @@ void reader(LockFreeRingQueue<int, QUEUE_CAPACITY>& queue, Statistics& stats) {
 
 
 int main() {
-    // 创建队列实例
+    // 初始化高精度计时器
+    HighResolutionTimer::init();
+
     LockFreeRingQueue<int, QUEUE_CAPACITY> queue;
     Statistics stats;
 
-    // 记录开始时间
-    auto start_time = std::chrono::high_resolution_clock::now();
+    const auto start_count = HighResolutionTimer::now();
 
     // 创建生产者和消费者线程
     std::vector<std::thread> producers;
@@ -149,13 +151,12 @@ int main() {
         c.join();
     }
 
-    // 计算执行时间
-    auto end_time = std::chrono::high_resolution_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
+    const auto end_count = HighResolutionTimer::now();
+    const auto duration_ms = HighResolutionTimer::to_ms(end_count - start_count);
 
     // 输出性能统计信息
     std::cout << "性能测试结果:\n";
-    std::cout << "执行时间: " << duration.count() << " ms\n\n";
+    std::cout << "执行时间: " << duration_ms << " ms\n\n";
     
     std::cout << "生产者统计:\n";
     std::cout << "成功推送: " << stats.push_success << "\n";
@@ -167,7 +168,7 @@ int main() {
 
     // 计算每秒操作数
     double total_ops = stats.push_success + stats.pop_success;
-    double ops_per_second = (total_ops * 1000.0) / duration.count();
+    double ops_per_second = (total_ops * 1000.0) / duration_ms;
     std::cout << "\n每秒操作数: " << std::fixed << std::setprecision(2) 
               << ops_per_second << " ops/s\n";
 
