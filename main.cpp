@@ -22,6 +22,8 @@ struct Statistics {
     std::atomic<size_t> push_failure{0};
     std::atomic<size_t> pop_success{0};
     std::atomic<size_t> pop_failure{0};
+    std::atomic<size_t> read_success{0};
+    std::atomic<size_t> read_failure{0};
 };
 
 /**
@@ -48,16 +50,68 @@ void producer(LockFreeRingQueue<int, QUEUE_CAPACITY>& queue, Statistics& stats, 
  */
 void consumer(LockFreeRingQueue<int, QUEUE_CAPACITY>& queue, Statistics& stats) {
     for (size_t i = 0; i < OPERATIONS_PER_THREAD; ++i) {
-        auto result = queue.pop();
-        if (result.has_value()) {
-            stats.pop_success++;
-        } else {
+        unsigned int backoff = 1;  // 初始回退值
+        while (true) {
+            auto result = queue.pop();
+            if (result.has_value()) {
+                stats.pop_success++;
+                break;
+            }
             stats.pop_failure++;
-            // 当获取失败时短暂休眠以减少空转
-            std::this_thread::sleep_for(std::chrono::microseconds(1));
+            
+            // 渐进式回退策略
+            for (unsigned int i = 0; i < backoff; ++i) {
+                // 使用CPU的PAUSE指令，减少能耗并优化自旋等待
+                #if defined(__x86_64__) || defined(_M_X64)
+                    _mm_pause();  // Intel/AMD CPU
+                #elif defined(__arm__) || defined(__aarch64__)
+                    asm volatile("yield");  // ARM CPU
+                #endif
+            }
+            
+            // 指数回退，但设置上限，2^14 = 16384
+            if (backoff < 16384) {
+                backoff *= 2;
+            }
         }
     }
 }
+
+/**
+ * @brief 读取者线程函数 - 持续读取队列中的所有数据
+ * @param queue 共享队列
+ * @param stats 统计数据
+ */
+void reader(LockFreeRingQueue<int, QUEUE_CAPACITY>& queue, Statistics& stats) {
+    size_t current_pos = 0;  // 当前读取位置
+    for (size_t i = 0; i < OPERATIONS_PER_THREAD; ++i) {
+        unsigned int backoff = 1;  // 初始回退值
+        while (true) {
+            // 尝试读取当前位置的元素
+            auto result = queue.read_at(current_pos);
+            if (result.has_value()) {
+                stats.read_success++;
+                current_pos++;  // 移动到下一个位置
+                break;
+            }
+            stats.read_failure++;
+            
+            // 渐进式回退策略
+            for (unsigned int j = 0; j < backoff; ++j) {
+                #if defined(__x86_64__) || defined(_M_X64)
+                    _mm_pause();
+                #elif defined(__arm__) || defined(__aarch64__)
+                    asm volatile("yield");
+                #endif
+            }
+            
+            if (backoff < 16384) {
+                backoff *= 2;
+            }
+        }
+    }
+}
+
 
 int main() {
     // 创建队列实例
