@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # 添加编译选项
-add_compile_options(-Wall -Wextra -Wpedantic -O3)
+add_compile_options(-Wall -Wextra -Wpedantic)
 
 # 添加可执行文件
 add_executable(queue_test main.cpp)

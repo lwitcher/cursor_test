@@ -4,6 +4,7 @@
 #include <chrono>
 #include <atomic>
 #include <iomanip>
+#include <optional>
 
 /**
  * @brief 性能测试参数
@@ -52,8 +53,8 @@ void consumer(LockFreeRingQueue<int, QUEUE_CAPACITY>& queue, Statistics& stats) 
             stats.pop_success++;
         } else {
             stats.pop_failure++;
-            // 当获取失败时短暂休眠以减少空转
-            std::this_thread::sleep_for(std::chrono::microseconds(1));
+            // 使用完整的命名空间限定
+            ::std::this_thread::sleep_for(::std::chrono::microseconds(1));
         }
     }
 }
