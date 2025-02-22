@@ -3,6 +3,7 @@
 #include <vector>
 #include <optional>
 #include <span>
+#include <thread>
 
 /**
  * @brief 无锁环形队列实现
@@ -42,9 +43,10 @@ public:
             std::this_thread::yield();
         }
 
-        // 原子写入数据
+        // 创建一个指针变量作为比较值
+        T* expected = nullptr;
         if (buffer_[current_write].compare_exchange_strong(
-                nullptr, new_data, std::memory_order_release, std::memory_order_relaxed)) {
+                expected, new_data, std::memory_order_release, std::memory_order_relaxed)) {
             write_index_.store(next_write, std::memory_order_release);
             return true;
         }
