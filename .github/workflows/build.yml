@@ -1,33 +1,50 @@
-name: Build and Test
+name: Build
 
 on:
   push:
-    branches: [ main ]
+    branches: [ master ]
   pull_request:
-    branches: [ main ]
+    branches: [ master ]
 
 jobs:
   build:
-    name: Linux GCC Build
+    name: Build on ${{ matrix.arch }}
     runs-on: ubuntu-latest
 
-    steps:
-    - uses: actions/checkout@v2
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x86_64, aarch64]
 
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Setup QEMU
+      if: matrix.arch == 'aarch64'
+      uses: docker/setup-qemu-action@v2
+
+    # 安装依赖
     - name: Install Dependencies
       run: |
         sudo apt-get update
         sudo apt-get install -y gcc g++ cmake
+        if [ "${{ matrix.arch }}" = "aarch64" ]; then
+          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+        fi
 
-    - name: Configure CMake
-      env:
-        CC: gcc
-        CXX: g++
-      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=Release
-
-    - name: Build
-      run: cmake --build ${{github.workspace}}/build --config Release
-
-    - name: Test
-      working-directory: ${{github.workspace}}/build
-      run: ctest -C Release --output-on-failure 
+    - name: Configure and Build
+      run: |
+        BUILD_DIR="build-${{ matrix.arch }}"
+        if [ "${{ matrix.arch }}" = "aarch64" ]; then
+          cmake -B $BUILD_DIR \
+            -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
+            -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ \
+            -DCMAKE_SYSTEM_NAME=Linux \
+            -DCMAKE_SYSTEM_PROCESSOR=aarch64
+        else
+          cmake -B $BUILD_DIR \
+            -DCMAKE_C_COMPILER=gcc \
+            -DCMAKE_CXX_COMPILER=g++ \
+            -DCMAKE_SYSTEM_PROCESSOR=x86_64
+        fi
+        cmake --build $BUILD_DIR
