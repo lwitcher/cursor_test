@@ -37,18 +37,18 @@ public:
      * - ARM64: CNTVCT_EL0寄存器，读取ARM虚拟计时器
      * - 其他: 使用std::chrono::steady_clock
      * 
-     * @return 当前时间点的计数器值(raw count)
+     * @return 当前时间点的计数器值(raw count)，无符号64位整数
      */
-    static inline int64_t now() noexcept {
+    static inline uint64_t now() noexcept {
         #if defined(__x86_64__) || defined(_M_X64)
             unsigned int aux;
-            return __rdtscp(&aux);  // 读取TSC，同时防止乱序执行
+            return static_cast<uint64_t>(__rdtscp(&aux));  // 读取TSC，同时防止乱序执行
         #elif defined(__aarch64__)
-            int64_t virtual_timer_value;
+            uint64_t virtual_timer_value;
             asm volatile("mrs %0, cntvct_el0" : "=r"(virtual_timer_value));
             return virtual_timer_value;
         #else
-            return std::chrono::steady_clock::now().time_since_epoch().count();
+            return static_cast<uint64_t>(std::chrono::steady_clock::now().time_since_epoch().count());
         #endif
     }
 
@@ -61,7 +61,7 @@ public:
      * @param count 计数器值差值(end - start)
      * @return 纳秒数(double类型以保持精度)
      */
-    static inline double to_ns(int64_t count) noexcept {
+    static inline double to_ns(uint64_t count) noexcept {
         return static_cast<double>(count) * 1000000.0 / get_freq();
     }
 
@@ -74,7 +74,7 @@ public:
      * @param count 计数器值差值(end - start)
      * @return 微秒数(double类型以保持精度)
      */
-    static inline double to_us(int64_t count) noexcept {
+    static inline double to_us(uint64_t count) noexcept {
         return static_cast<double>(count) * 1000.0 / get_freq();
     }
 
@@ -87,7 +87,7 @@ public:
      * @param count 计数器值差值(end - start)
      * @return 毫秒数(double类型以保持精度)
      */
-    static inline double to_ms(int64_t count) noexcept {
+    static inline double to_ms(uint64_t count) noexcept {
         return static_cast<double>(count) / get_freq();
     }
 
@@ -100,7 +100,7 @@ public:
      * @param count 计数器值差值(end - start)
      * @return 秒数(double类型以保持精度)
      */
-    static inline double to_sec(int64_t count) noexcept {
+    static inline double to_sec(uint64_t count) noexcept {
         return static_cast<double>(count) / (get_freq() * 1000.0);
     }
 

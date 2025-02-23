@@ -229,11 +229,7 @@ public:
 
 #if QUEUE_PERF_STATS
         if (data) stats_.read_at_success++;
-#endif
 
-        return data ? std::optional<T>(*data) : std::nullopt;
-
-#if QUEUE_PERF_STATS
         const auto end_time = HighResolutionTimer::now();
         const auto duration = end_time - start_time;
         stats_.read_total_ticks += duration;
@@ -253,6 +249,8 @@ public:
         while(duration < current_min && 
               !stats_.read_min_ticks.compare_exchange_weak(current_min, duration));
 #endif
+
+        return data ? std::optional<T>(*data) : std::nullopt;
     }
 
 #if QUEUE_PERF_STATS
