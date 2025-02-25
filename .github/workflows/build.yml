@@ -40,11 +40,13 @@ jobs:
             -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
             -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ \
             -DCMAKE_SYSTEM_NAME=Linux \
-            -DCMAKE_SYSTEM_PROCESSOR=aarch64
+            -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
+            -DENABLE_PERF_STATS=ON
         else
           cmake -B $BUILD_DIR \
             -DCMAKE_C_COMPILER=gcc \
             -DCMAKE_CXX_COMPILER=g++ \
-            -DCMAKE_SYSTEM_PROCESSOR=x86_64
+            -DCMAKE_SYSTEM_PROCESSOR=x86_64 \
+            -DENABLE_PERF_STATS=ON
         fi
         cmake --build $BUILD_DIR

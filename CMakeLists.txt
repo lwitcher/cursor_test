@@ -5,6 +5,20 @@ project(LockFreeQueue VERSION 1.0)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# 性能统计开关
+option(ENABLE_PERF_STATS "Enable performance statistics" ON)
+if(ENABLE_PERF_STATS)
+    add_compile_definitions(
+        QUEUE_PERF_STATS=1
+        QUEUE_READER_PERF_STATS=1
+    )
+else()
+    add_compile_definitions(
+        QUEUE_PERF_STATS=0
+        QUEUE_READER_PERF_STATS=0
+    )
+endif()
+
 # 基础编译选项
 add_compile_options(
     -Wall 
