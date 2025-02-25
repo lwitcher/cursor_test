@@ -1,4 +1,6 @@
 #include "queue.hpp"
+#include "queue_producer.hpp"
+#include "queue_observer.hpp"
 #include <iostream>
 #include <vector>
 #include <thread>
@@ -6,6 +8,7 @@
 #include <atomic>
 #include <iomanip>
 #include <optional>
+#include <random>
 // 添加 x86 intrinsics 头文件
 #if defined(__x86_64__)
     #include <immintrin.h>
@@ -15,163 +18,150 @@
 #include "timer.hpp"
 
 /**
- * @brief 性能测试参数
+ * @brief 测试用的自定义数据类型
  */
-constexpr size_t QUEUE_CAPACITY = 1024;        // 队列容量
-constexpr size_t OPERATIONS_PER_THREAD = 1000000;  // 每个线程的操作次数
-constexpr size_t NUM_PRODUCERS = 2;            // 生产者线程数
-constexpr size_t NUM_CONSUMERS = 2;            // 消费者线程数
+struct TestData {
+    uint64_t timestamp;      // 时间戳
+    uint64_t sequence;       // 序列号
+    uint64_t value;         // 数值
+    uint8_t  flags[4];      // 标志位
 
-/**
- * @brief 统计计数器
- */
-struct Statistics {
-    std::atomic<size_t> push_success{0};
-    std::atomic<size_t> push_failure{0};
-    std::atomic<size_t> pop_success{0};
-    std::atomic<size_t> pop_failure{0};
-    std::atomic<size_t> read_success{0};
-    std::atomic<size_t> read_failure{0};
+    // 构造函数
+    TestData(uint64_t seq = 0) 
+        : timestamp(0)
+        , sequence(seq)
+        , value(0)
+    {
+        flags[0] = 0;
+        flags[1] = 0;
+        flags[2] = 0;
+        flags[3] = 0;
+    }
 };
 
 /**
- * @brief 生产者线程函数
- * @param queue 共享队列
- * @param stats 统计数据
- * @param thread_id 线程ID
+ * @brief 性能测试参数
  */
-void producer(LockFreeRingQueue<int, QUEUE_CAPACITY>& queue, Statistics& stats, int thread_id) {
-    for (size_t i = 0; i < OPERATIONS_PER_THREAD; ++i) {
-        int value = (thread_id * OPERATIONS_PER_THREAD) + i;
-        if (queue.push(value)) {
-            stats.push_success++;
-        } else {
-            stats.push_failure++;
-        }
-    }
-}
+constexpr size_t QUEUE_CAPACITY = 20000;       // 队列容量
+constexpr size_t OPERATIONS_PER_THREAD = 1000000;  // 每个线程的操作次数
+constexpr size_t NUM_PRODUCERS = 2;            // 生产者线程数
+constexpr size_t NUM_CONSUMERS = 3;            // 消费者线程数
 
 /**
- * @brief 消费者线程函数
- * @param queue 共享队列
- * @param stats 统计数据
+ * @brief 数据生成器
  */
-void consumer(LockFreeRingQueue<int, QUEUE_CAPACITY>& queue, Statistics& stats) {
-    for (size_t i = 0; i < OPERATIONS_PER_THREAD; ++i) {
-        unsigned int backoff = 1;  // 初始回退值
-        while (true) {
-            auto result = queue.pop();
-            if (result.has_value()) {
-                stats.pop_success++;
-                break;
-            }
-            stats.pop_failure++;
-            
-            // 渐进式回退策略
-            for (unsigned int i = 0; i < backoff; ++i) {
-                // 使用CPU的PAUSE指令，减少能耗并优化自旋等待
-                #if defined(__x86_64__)
-                    _mm_pause();  // Intel/AMD CPU
-                #elif defined(__aarch64__)
-                    asm volatile("yield");  // ARM CPU
-                #endif
-            }
-            
-            // 指数回退，但设置上限，2^14 = 16384
-            if (backoff < 16384) {
-                backoff *= 2;
-            }
-        }
+class DataGenerator {
+public:
+    DataGenerator() : sequence_(0) {
+        // 初始化随机数生成器
+        std::random_device rd;
+        rng_.seed(rd());
     }
-}
+
+    TestData generate() {
+        TestData data(sequence_++);
+        
+        // 生成随机时间戳
+        data.timestamp = std::chrono::system_clock::now()
+            .time_since_epoch()
+            .count();
+        
+        // 生成随机值
+        data.value = value_dist_(rng_);
+        
+        // 生成随机标志位
+        for (int i = 0; i < 4; ++i) {
+            data.flags[i] = flag_dist_(rng_);
+        }
+        
+        return data;
+    }
+
+private:
+    std::atomic<uint64_t> sequence_;
+    std::mt19937_64 rng_;
+    std::uniform_int_distribution<uint64_t> value_dist_;
+    std::uniform_int_distribution<uint16_t> flag_dist_{0, 255};
+};
 
 /**
- * @brief 读取者线程函数 - 持续读取队列中的所有数据
- * @param queue 共享队列
- * @param stats 统计数据
+ * @brief 队列满时的回调函数
  */
-void reader(LockFreeRingQueue<int, QUEUE_CAPACITY>& queue, Statistics& stats) {
-    size_t current_pos = 0;  // 当前读取位置
-    for (size_t i = 0; i < OPERATIONS_PER_THREAD; ++i) {
-        unsigned int backoff = 1;  // 初始回退值
-        while (true) {
-            // 尝试读取当前位置的元素
-            auto result = queue.read_at(current_pos);
-            if (result.has_value()) {
-                stats.read_success++;
-                current_pos++;  // 移动到下一个位置
-                break;
-            }
-            stats.read_failure++;
-            
-            // 渐进式回退策略
-            for (unsigned int j = 0; j < backoff; ++j) {
-                #if defined(__x86_64__)
-                    _mm_pause();
-                #elif defined(__aarch64__)
-                    asm volatile("yield");
-                #endif
-            }
-            
-            if (backoff < 16384) {
-                backoff *= 2;
-            }
-        }
-    }
+void on_queue_full() {
+    std::cout << "Queue is full!" << std::endl;
 }
-
 
 int main() {
     // 初始化高精度计时器
     HighResolutionTimer::init();
 
-    LockFreeRingQueue<int, QUEUE_CAPACITY> queue;
-    Statistics stats;
+    // 创建队列
+    LockFreeRingQueue<TestData, QUEUE_CAPACITY> queue;
+    
+    // 创建数据生成器
+    DataGenerator generator;
+    
+    // 创建生产者
+    std::vector<std::unique_ptr<LockFreeQueueProducer<TestData, QUEUE_CAPACITY>>> producers;
+    for (size_t i = 0; i < NUM_PRODUCERS; ++i) {
+        producers.emplace_back(std::make_unique<LockFreeQueueProducer<TestData, QUEUE_CAPACITY>>(
+            queue,
+            [&generator]() { return generator.generate(); },
+            on_queue_full
+        ));
+    }
+
+    // 创建消费者
+    std::vector<std::unique_ptr<MyQueueReader<TestData, QUEUE_CAPACITY>>> consumers;
+    for (size_t i = 0; i < NUM_CONSUMERS; ++i) {
+        consumers.emplace_back(std::make_unique<MyQueueReader<TestData, QUEUE_CAPACITY>>(queue));
+    }
 
     const auto start_count = HighResolutionTimer::now();
 
-    // 创建生产者和消费者线程
-    std::vector<std::thread> producers;
-    std::vector<std::thread> consumers;
-
-    // 启动生产者线程
-    for (size_t i = 0; i < NUM_PRODUCERS; ++i) {
-        producers.emplace_back(producer, std::ref(queue), std::ref(stats), i);
+    // 启动所有生产者
+    for (auto& producer : producers) {
+        producer->start();
     }
 
-    // 启动消费者线程
-    for (size_t i = 0; i < NUM_CONSUMERS; ++i) {
-        consumers.emplace_back(consumer, std::ref(queue), std::ref(stats));
+    // 启动所有消费者
+    for (auto& consumer : consumers) {
+        consumer->start();
     }
 
-    // 等待所有线程完成
-    for (auto& p : producers) {
-        p.join();
+    // 等待一段时间
+    std::this_thread::sleep_for(std::chrono::seconds(10));
+
+    // 停止所有生产者
+    for (auto& producer : producers) {
+        producer->stop();
     }
-    for (auto& c : consumers) {
-        c.join();
+
+    // 停止所有消费者
+    for (auto& consumer : consumers) {
+        consumer->stop();
     }
 
     const auto end_count = HighResolutionTimer::now();
     const auto duration_ms = HighResolutionTimer::to_ms(end_count - start_count);
 
     // 输出性能统计信息
-    std::cout << "性能测试结果:\n";
-    std::cout << "执行时间: " << duration_ms << " ms\n\n";
-    
-    std::cout << "生产者统计:\n";
-    std::cout << "成功推送: " << stats.push_success << "\n";
-    std::cout << "推送失败: " << stats.push_failure << "\n";
-    
-    std::cout << "\n消费者统计:\n";
-    std::cout << "成功弹出: " << stats.pop_success << "\n";
-    std::cout << "弹出失败: " << stats.pop_failure << "\n";
+    std::cout << "\n=== 队列性能统计 ===\n";
+    std::cout << queue.get_stats() << "\n";
 
-    // 计算每秒操作数
-    double total_ops = stats.push_success + stats.pop_success;
-    double ops_per_second = (total_ops * 1000.0) / duration_ms;
-    std::cout << "\n每秒操作数: " << std::fixed << std::setprecision(2) 
-              << ops_per_second << " ops/s\n";
+    std::cout << "\n=== 生产者性能统计 ===\n";
+    for (size_t i = 0; i < producers.size(); ++i) {
+        std::cout << "\n生产者 " << i << ":\n";
+        std::cout << producers[i]->get_stats() << "\n";
+    }
+
+    std::cout << "\n=== 消费者性能统计 ===\n";
+    for (size_t i = 0; i < consumers.size(); ++i) {
+        std::cout << "\n消费者 " << i << ":\n";
+        std::cout << consumers[i]->get_stats() << "\n";
+    }
+
+    std::cout << "\n总执行时间: " << duration_ms << " ms\n";
 
     return 0;
 } 

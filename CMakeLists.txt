@@ -11,11 +11,13 @@ if(ENABLE_PERF_STATS)
     add_compile_definitions(
         QUEUE_PERF_STATS=1
         QUEUE_READER_PERF_STATS=1
+        QUEUE_PRODUCER_PERF_STATS=1
     )
 else()
     add_compile_definitions(
         QUEUE_PERF_STATS=0
         QUEUE_READER_PERF_STATS=0
+        QUEUE_PRODUCER_PERF_STATS=0
     )
 endif()
 
