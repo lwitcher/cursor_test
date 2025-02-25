@@ -1,6 +1,11 @@
 #pragma once
 #include <chrono>
 
+// 在文件开头添加必要的头文件
+#if defined(__x86_64__)
+#include <x86intrin.h>  // 对于 GCC/Clang
+#endif
+
 /**
  * @brief 高性能计时器类
  * 
