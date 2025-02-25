@@ -6,6 +6,87 @@
 #include "queue.hpp"
 
 /**
+ * @brief 队列读取器性能统计类
+ */
+#if QUEUE_READER_PERF_STATS
+class QueueReaderStats {
+public:
+    void record_successful_read(uint64_t start_time) {
+        const auto end_time = HighResolutionTimer::now();
+        const auto duration = end_time - start_time;
+        
+        successful_reads++;
+        total_ticks += duration;
+        update_max_min_time(duration);
+    }
+
+    void record_empty_read() {
+        empty_reads++;
+        backoff_count++;
+    }
+
+    void increment_total_reads() {
+        total_reads++;
+    }
+
+    std::string get_stats() const {
+        std::stringstream ss;
+        ss << "观察者性能统计:\n";
+        
+        const auto total = total_reads.load();
+        const auto success = successful_reads.load();
+        const auto empty = empty_reads.load();
+        
+        ss << "总读取次数: " << total << "\n";
+        ss << "成功读取次数: " << success << "\n";
+        ss << "空读取次数: " << empty << "\n";
+        ss << "回退次数: " << backoff_count.load() << "\n";
+        
+        if (success > 0) {
+            const auto avg_ns = HighResolutionTimer::to_ns(total_ticks.load() / success);
+            const auto max_ns = HighResolutionTimer::to_ns(max_ticks.load());
+            const auto min_ns = HighResolutionTimer::to_ns(min_ticks.load());
+            
+            ss << "平均读取耗时: " << avg_ns << " ns\n";
+            ss << "最大读取耗时: " << max_ns << " ns\n";
+            ss << "最小读取耗时: " << min_ns << " ns\n";
+        }
+        
+        return ss.str();
+    }
+
+    void reset() {
+        total_reads = 0;
+        successful_reads = 0;
+        empty_reads = 0;
+        total_ticks = 0;
+        max_ticks = 0;
+        min_ticks = UINT64_MAX;
+        backoff_count = 0;
+    }
+
+private:
+    std::atomic<size_t> total_reads{0};
+    std::atomic<size_t> successful_reads{0};
+    std::atomic<size_t> empty_reads{0};
+    std::atomic<uint64_t> total_ticks{0};
+    std::atomic<uint64_t> max_ticks{0};
+    std::atomic<uint64_t> min_ticks{UINT64_MAX};
+    std::atomic<size_t> backoff_count{0};
+
+    void update_max_min_time(uint64_t duration) {
+        uint64_t current_max = max_ticks.load();
+        while(duration > current_max && 
+              !max_ticks.compare_exchange_weak(current_max, duration));
+              
+        uint64_t current_min = min_ticks.load();
+        while(duration < current_min && 
+              !min_ticks.compare_exchange_weak(current_min, duration));
+    }
+};
+#endif 
+
+/**
  * @brief 高性能无锁队列读取器，使用CRTP模式
  * @tparam Derived 派生类类型
  * @tparam T 数据类型
@@ -159,83 +240,3 @@ public:
         : Base(queue) {}
 };
 
-/**
- * @brief 队列读取器性能统计类
- */
-#if QUEUE_READER_PERF_STATS
-class QueueReaderStats {
-public:
-    void record_successful_read(uint64_t start_time) {
-        const auto end_time = HighResolutionTimer::now();
-        const auto duration = end_time - start_time;
-        
-        successful_reads++;
-        total_ticks += duration;
-        update_max_min_time(duration);
-    }
-
-    void record_empty_read() {
-        empty_reads++;
-        backoff_count++;
-    }
-
-    void increment_total_reads() {
-        total_reads++;
-    }
-
-    std::string get_stats() const {
-        std::stringstream ss;
-        ss << "观察者性能统计:\n";
-        
-        const auto total = total_reads.load();
-        const auto success = successful_reads.load();
-        const auto empty = empty_reads.load();
-        
-        ss << "总读取次数: " << total << "\n";
-        ss << "成功读取次数: " << success << "\n";
-        ss << "空读取次数: " << empty << "\n";
-        ss << "回退次数: " << backoff_count.load() << "\n";
-        
-        if (success > 0) {
-            const auto avg_ns = HighResolutionTimer::to_ns(total_ticks.load() / success);
-            const auto max_ns = HighResolutionTimer::to_ns(max_ticks.load());
-            const auto min_ns = HighResolutionTimer::to_ns(min_ticks.load());
-            
-            ss << "平均读取耗时: " << avg_ns << " ns\n";
-            ss << "最大读取耗时: " << max_ns << " ns\n";
-            ss << "最小读取耗时: " << min_ns << " ns\n";
-        }
-        
-        return ss.str();
-    }
-
-    void reset() {
-        total_reads = 0;
-        successful_reads = 0;
-        empty_reads = 0;
-        total_ticks = 0;
-        max_ticks = 0;
-        min_ticks = UINT64_MAX;
-        backoff_count = 0;
-    }
-
-private:
-    std::atomic<size_t> total_reads{0};
-    std::atomic<size_t> successful_reads{0};
-    std::atomic<size_t> empty_reads{0};
-    std::atomic<uint64_t> total_ticks{0};
-    std::atomic<uint64_t> max_ticks{0};
-    std::atomic<uint64_t> min_ticks{UINT64_MAX};
-    std::atomic<size_t> backoff_count{0};
-
-    void update_max_min_time(uint64_t duration) {
-        uint64_t current_max = max_ticks.load();
-        while(duration > current_max && 
-              !max_ticks.compare_exchange_weak(current_max, duration));
-              
-        uint64_t current_min = min_ticks.load();
-        while(duration < current_min && 
-              !min_ticks.compare_exchange_weak(current_min, duration));
-    }
-};
-#endif 

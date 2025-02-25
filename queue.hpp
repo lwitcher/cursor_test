@@ -66,7 +66,7 @@ public:
      * @brief 记录一次pop成功,并统计耗时
      * @param start_time pop操作开始时间
      */
-    void record_pop_success(const auto& start_time) {
+    void record_pop_success(uint64_t start_time) {
         const auto end_time = HighResolutionTimer::now();
         const auto duration = end_time - start_time;
         
