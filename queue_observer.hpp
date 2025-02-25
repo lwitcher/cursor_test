@@ -165,7 +165,7 @@ public:
 #if QUEUE_READER_PERF_STATS
 class QueueReaderStats {
 public:
-    void record_successful_read(const auto& start_time) {
+    void record_successful_read(uint64_t start_time) {
         const auto end_time = HighResolutionTimer::now();
         const auto duration = end_time - start_time;
         

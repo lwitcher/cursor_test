@@ -32,7 +32,7 @@ public:
      * @brief 记录一次push成功,并统计耗时
      * @param start_time push操作开始时间
      */
-    void record_push_success(const auto& start_time) {
+    void record_push_success(uint64_t start_time) {
         const auto end_time = HighResolutionTimer::now();
         const auto duration = end_time - start_time;
         
@@ -93,7 +93,7 @@ public:
      * @brief 记录一次read_at成功,并统计耗时
      * @param start_time read_at操作开始时间
      */
-    void record_read_success(const auto& start_time) {
+    void record_read_success(uint64_t start_time) {
         const auto end_time = HighResolutionTimer::now();
         const auto duration = end_time - start_time;
         

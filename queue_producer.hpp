@@ -15,7 +15,7 @@ public:
         produce_attempts++;
     }
 
-    void record_produce_success(const auto& start_time) {
+    void record_produce_success(uint64_t start_time) {
         const auto end_time = HighResolutionTimer::now();
         const auto duration = end_time - start_time;
         
