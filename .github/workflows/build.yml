@@ -34,17 +34,17 @@ jobs:
 
     - name: Configure and Build
       run: |
+        BUILD_DIR="build-${{ matrix.arch }}"
         if [ "${{ matrix.arch }}" = "aarch64" ]; then
-          cmake -B build \
+          cmake -B $BUILD_DIR \
             -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
             -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ \
             -DCMAKE_SYSTEM_NAME=Linux \
             -DCMAKE_SYSTEM_PROCESSOR=aarch64
         else
-          cmake -B build
+          cmake -B $BUILD_DIR \
+            -DCMAKE_C_COMPILER=gcc \
+            -DCMAKE_CXX_COMPILER=g++ \
+            -DCMAKE_SYSTEM_PROCESSOR=x86_64
         fi
-        cmake --build build
-
-    # 构建
-    - name: Build
-      run: cmake --build ${{github.workspace}}/build --config Release 
+        cmake --build $BUILD_DIR

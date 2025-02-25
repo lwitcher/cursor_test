@@ -1,14 +1,15 @@
 #include "queue.hpp"
 #include <iostream>
+#include <vector>
 #include <thread>
 #include <chrono>
 #include <atomic>
 #include <iomanip>
 #include <optional>
 // 添加 x86 intrinsics 头文件
-#if defined(__x86_64__) || defined(_M_X64)
+#if defined(__x86_64__)
     #include <immintrin.h>
-#elif defined(__arm__) || defined(__aarch64__)
+#elif defined(__aarch64__)
     #include <arm_neon.h>
 #endif
 #include "timer.hpp"
@@ -69,9 +70,9 @@ void consumer(LockFreeRingQueue<int, QUEUE_CAPACITY>& queue, Statistics& stats) 
             // 渐进式回退策略
             for (unsigned int i = 0; i < backoff; ++i) {
                 // 使用CPU的PAUSE指令，减少能耗并优化自旋等待
-                #if defined(__x86_64__) || defined(_M_X64)
+                #if defined(__x86_64__)
                     _mm_pause();  // Intel/AMD CPU
-                #elif defined(__arm__) || defined(__aarch64__)
+                #elif defined(__aarch64__)
                     asm volatile("yield");  // ARM CPU
                 #endif
             }
@@ -105,9 +106,9 @@ void reader(LockFreeRingQueue<int, QUEUE_CAPACITY>& queue, Statistics& stats) {
             
             // 渐进式回退策略
             for (unsigned int j = 0; j < backoff; ++j) {
-                #if defined(__x86_64__) || defined(_M_X64)
+                #if defined(__x86_64__)
                     _mm_pause();
-                #elif defined(__arm__) || defined(__aarch64__)
+                #elif defined(__aarch64__)
                     asm volatile("yield");
                 #endif
             }

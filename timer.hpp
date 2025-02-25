@@ -40,7 +40,7 @@ public:
      * @return 当前时间点的计数器值(raw count)，无符号64位整数
      */
     static inline uint64_t now() noexcept {
-        #if defined(__x86_64__) || defined(_M_X64)
+        #if defined(__x86_64__)
             unsigned int aux;
             return static_cast<uint64_t>(__rdtscp(&aux));  // 读取TSC，同时防止乱序执行
         #elif defined(__aarch64__)
@@ -147,9 +147,9 @@ private:
             // 使用忙等待循环以获得更精确的时间测量
             // 不使用yield避免线程切换带来的额外开销
             while (std::chrono::steady_clock::now() - start < duration) {
-                #if defined(__x86_64__) || defined(_M_X64)
+                #if defined(__x86_64__)
                     _mm_pause();  // Intel CPU的暂停指令,减少能耗
-                #elif defined(__arm__) || defined(__aarch64__)
+                #elif defined(__aarch64__)
                     asm volatile("yield");  // ARM CPU的yield指令
                 #endif
             }

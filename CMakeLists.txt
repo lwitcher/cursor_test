@@ -5,12 +5,6 @@ project(LockFreeQueue VERSION 1.0)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-
-# 检查CPU架构
-if(NOT (CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|aarch64"))
-    message(FATAL_ERROR "Only x86_64 and aarch64 architectures are supported")
-endif()
-
 # 基础编译选项
 add_compile_options(
     -Wall 
