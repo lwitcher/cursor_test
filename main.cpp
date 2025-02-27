@@ -91,6 +91,57 @@ void on_queue_full() {
     std::cout << "Queue is full!" << std::endl;
 }
 
+/**
+ * @brief 使用内存池进行性能测试
+ */
+void test_memory_pool() {
+    MemoryPool<TestData> pool;
+
+    auto start = HighResolutionTimer::now();
+
+    // 分配对象
+    std::vector<TestData*> objects;
+    for (size_t i = 0; i < NUM_OPERATIONS; ++i) {
+        TestData* obj = pool.allocate();
+        obj->sequence = i; // 设置序列号
+        objects.push_back(obj);
+    }
+
+    // 释放对象
+    for (auto obj : objects) {
+        pool.deallocate(obj);
+    }
+
+    auto end = HighResolutionTimer::now();
+    const auto duration_ms = HighResolutionTimer::to_ms(end - start);
+
+    std::cout << "内存池: " << duration_ms << " 毫秒用于 " << NUM_OPERATIONS << " 次分配和释放。\n";
+}
+
+/**
+ * @brief 使用 new 进行性能测试
+ */
+void test_new() {
+    auto start = HighResolutionTimer::now();
+
+    // 分配对象
+    std::vector<TestData*> objects;
+    for (size_t i = 0; i < NUM_OPERATIONS; ++i) {
+        TestData* obj = new TestData(i);
+        objects.push_back(obj);
+    }
+
+    // 释放对象
+    for (auto obj : objects) {
+        delete obj;
+    }
+
+    auto end = HighResolutionTimer::now();
+    const auto duration_ms = HighResolutionTimer::to_ms(end - start);
+
+    std::cout << "使用 new: " << duration_ms << " 毫秒用于 " << NUM_OPERATIONS << " 次分配和释放。\n";
+}
+
 int main() {
     // 初始化高精度计时器
     HighResolutionTimer::init();
@@ -161,7 +212,13 @@ int main() {
         std::cout << consumers[i]->get_stats() << "\n";
     }
 
-    std::cout << "\n总执行时间: " << duration_ms << " ms\n";
+    std::cout << "\n总执行时间: " << duration_ms << " 毫秒\n";
+
+    // 测试内存池性能
+    test_memory_pool();
+
+    // 测试 new 性能
+    test_new();
 
     return 0;
 } 
