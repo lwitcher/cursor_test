@@ -9,6 +9,7 @@
 #include <iomanip>
 #include <optional>
 #include <random>
+#include "memory_pool.hpp"
 // 添加 x86 intrinsics 头文件
 #if defined(__x86_64__)
     #include <immintrin.h>
