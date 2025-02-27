@@ -47,6 +47,7 @@ constexpr size_t QUEUE_CAPACITY = 20000;       // 队列容量
 constexpr size_t OPERATIONS_PER_THREAD = 1000000;  // 每个线程的操作次数
 constexpr size_t NUM_PRODUCERS = 2;            // 生产者线程数
 constexpr size_t NUM_CONSUMERS = 3;            // 消费者线程数
+constexpr size_t NUM_OPERATIONS = 1000000; // 操作次数
 
 /**
  * @brief 数据生成器
