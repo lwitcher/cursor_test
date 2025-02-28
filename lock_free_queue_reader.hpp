@@ -101,7 +101,7 @@ private:
 template<typename Derived, typename T, size_t Capacity>
 class LockFreeQueueReader {
 private:
-    LockFreeRingQueue<T, Capacity>& queue_;    // 被观察的队列
+    NBQueue<T, Capacity>& queue_;    // 被观察的队列
     std::atomic<bool> running_{false};         // 运行状态标志
     std::thread observer_thread_;              // 观察者线程
     
@@ -169,7 +169,7 @@ protected:
      * @brief 构造函数
      * @param queue 要观察的队列
      */
-    explicit LockFreeQueueReader(LockFreeRingQueue<T, Capacity>& queue)
+    explicit LockFreeQueueReader(NBQueue<T, Capacity>& queue)
         : queue_(queue) {}
 
 public:
@@ -236,7 +236,7 @@ private:
     }
 
 public:
-    explicit MyQueueReader(LockFreeRingQueue<T, Capacity>& queue)
+    explicit MyQueueReader(NBQueue<T, Capacity>& queue)
         : Base(queue) {}
 };
 

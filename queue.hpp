@@ -259,7 +259,7 @@ private:
  * @tparam Capacity 队列容量
  */
 template<typename T, size_t Capacity>
-class LockFreeRingQueue {
+class NBQueue {
     // 使用64字节对齐以避免伪共享
     alignas(64) std::array<std::atomic<T*>, Capacity> buffer_{}; // 使用固定大小数组存储数据
     alignas(64) std::atomic<size_t> read_index_{0};   // 读取位置索引
@@ -276,14 +276,14 @@ public:
      * std::array 会自动零初始化所有元素，但我们仍然需要
      * 正确初始化 std::atomic 对象
      */
-    LockFreeRingQueue() {
+    NBQueue() {
         for (auto& slot : buffer_) {
         // 初始化所有槽位为空指针
             slot.store(nullptr, std::memory_order_relaxed);
         }
     }
 
-    ~LockFreeRingQueue() {
+    ~NBQueue() {
         for (auto& slot : buffer_) {
             T* ptr = slot.load(std::memory_order_relaxed);
         // 清理所有未被消费的数据
@@ -295,8 +295,8 @@ public:
 
  
     // 禁用拷贝构造和赋值操作
-    LockFreeRingQueue(const LockFreeRingQueue&) = delete;
-    LockFreeRingQueue& operator=(const LockFreeRingQueue&) = delete;
+    NBQueue(const NBQueue&) = delete;
+    NBQueue& operator=(const NBQueue&) = delete;
 
     bool push(T value) {
 #if QUEUE_PERF_STATS

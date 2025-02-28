@@ -1,6 +1,6 @@
 #include "queue.hpp"
-#include "queue_producer.hpp"
-#include "queue_observer.hpp"
+#include "lock_free_queue_producer.hpp"
+#include "lock_free_queue_reader.hpp"
 #include <iostream>
 #include <vector>
 #include <thread>
@@ -149,7 +149,7 @@ int main() {
     HighResolutionTimer::init();
 
     // 创建队列
-    LockFreeRingQueue<TestData, QUEUE_CAPACITY> queue;
+    NBQueue<TestData, QUEUE_CAPACITY> queue;
     
     // 创建数据生成器
     DataGenerator generator;

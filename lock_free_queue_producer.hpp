@@ -97,7 +97,7 @@ private:
 template<typename T, size_t Capacity>
 class LockFreeQueueProducer {
 private:
-    LockFreeRingQueue<T, Capacity>& queue_;    // 目标队列
+    NBQueue<T, Capacity>& queue_;    // 目标队列
     std::atomic<bool> running_{false};         // 运行状态标志
     std::thread producer_thread_;              // 生产者线程
     std::function<void()> on_queue_full_;      // 队列满时的回调函数
@@ -170,7 +170,7 @@ public:
      * @param on_queue_full 队列满时的回调函数
      */
     LockFreeQueueProducer(
-        LockFreeRingQueue<T, Capacity>& queue,
+        NBQueue<T, Capacity>& queue,
         std::function<T()> data_generator,
         std::function<void()> on_queue_full = nullptr)
         : queue_(queue)
